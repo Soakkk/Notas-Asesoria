@@ -253,7 +253,7 @@ app.post("/api/gemini/analyze-tax", async (req, res) => {
     } else if (text.includes("400") || text.includes("401") || text.includes("403") ||
                lower.includes("api key") || lower.includes("api_key") || lower.includes("invalid") ||
                lower.includes("expired") || lower.includes("permission")) {
-      message = "La clave de Gemini no es válida o ha caducado. Ve a 'Ajustes' y pega una clave nueva de Google AI Studio (empieza por 'AIza').";
+      message = "La clave de Gemini no es válida o ha caducado. Ve a 'Ajustes' y pega una clave nueva creada en Google AI Studio (aistudio.google.com/apikey).";
     } else if (isRetryableGeminiError(error)) {
       message = "Gemini está saturado en este momento (mucha demanda en Google). Espere unos segundos y vuelva a pegar la captura.";
     } else {

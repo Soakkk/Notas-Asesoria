@@ -119,7 +119,7 @@ export const ApiKeySettings: React.FC<ApiKeySettingsProps> = ({ onConfigured }) 
               type="password"
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
-              placeholder="Pega aquí tu clave (empieza normalmente por AIza...)"
+              placeholder="Pega aquí tu clave de Google AI Studio"
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-slate-800 bg-slate-50/50 font-mono mb-2"
             />
 
