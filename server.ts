@@ -227,7 +227,12 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    // __dirname (no process.cwd()): tras empaquetar, este archivo vive dentro
+    // de resources/app.asar/dist junto al resto de los estáticos. process.cwd()
+    // depende de desde dónde se lanzó el .exe (varía según acceso directo/carpeta)
+    // y en producción normalmente NO es la carpeta de la app, lo que causaba
+    // "Not Found" al abrir la app instalada en otro PC.
+    const distPath = __dirname;
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));

@@ -1,7 +1,7 @@
 {
   "name": "generador-avisos-impuestos",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Generador de avisos fiscales para clientes con lectura de capturas mediante IA",
   "author": "Asesoría E. Marín",
   "type": "module",
