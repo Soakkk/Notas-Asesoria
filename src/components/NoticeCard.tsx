@@ -220,8 +220,8 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({ notice, format }) => {
     ) : null;
 
   const StatusLine = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: res.bg, border: `1px solid ${res.bd}`, borderRadius: 10, padding: '10px 13px' }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: res.dot, flexShrink: 0 }} />
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: res.bg, border: `1px solid ${res.bd}`, borderRadius: 10, padding: '10px 13px' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: res.dot, flexShrink: 0, marginTop: 4 }} />
       <span style={{ fontSize: 13, color: res.c, lineHeight: 1.4 }}>
         <span style={{ fontWeight: 700 }}>{res.label}</span> — {res.shortMsg}
       </span>
@@ -251,8 +251,8 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({ notice, format }) => {
   const BodyB = () => (
     <>
       {!single && <div style={{ marginTop: 12 }}><Desglose /></div>}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: `2px solid ${NAVY}`, marginTop: single ? 12 : 5 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: NAVY, letterSpacing: single ? 0 : '0.04em' }}>{single ? amountLabel : 'TOTAL'}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: `2px solid ${NAVY}`, marginTop: single ? 12 : 5 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: NAVY, letterSpacing: single ? 0 : '0.04em', whiteSpace: 'nowrap' }}>{single ? amountLabel : 'TOTAL'}</span>
         <span style={{ fontFamily: SERIF, fontSize: fitAmount(25), color: NAVY, whiteSpace: 'nowrap', flexShrink: 0 }}>{totalAmount}</span>
       </div>
       <div style={{ margin: '8px 0 2px' }}><StatusLine /></div>
@@ -305,7 +305,7 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({ notice, format }) => {
 
   return (
     <div className="w-full flex flex-col items-center">
-      {/* ===== FICHA (lo que se exporta a imagen) ===== */}
+      {/* ===== FICHA (lo que se exporta a imagen): tarjeta cuadrada y limpia ===== */}
       <div
         ref={cardRef}
         style={{
@@ -313,9 +313,6 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({ notice, format }) => {
           boxSizing: 'border-box',
           background: PAGE,
           border: `1px solid ${BORDER}`,
-          borderLeft: `6px solid ${NAVY}`,
-          borderRadius: 14,
-          overflow: 'hidden',
           fontFamily: "'Segoe UI', Arial, 'Helvetica Neue', sans-serif",
           color: INK,
         }}
