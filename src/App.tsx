@@ -143,6 +143,11 @@ export default function App() {
   const [editingJointId, setEditingJointId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Record<string, 'text' | 'image'>>({});
   const [copiedTextId, setCopiedTextId] = useState<string | null>(null);
+  const [selectedJointId, setSelectedJointId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<'file' | 'edit' | 'view' | 'history' | 'help' | null>(null);
+  const [historyExpanded, setHistoryExpanded] = useState(true);
+  const [showPreferences, setShowPreferences] = useState(false);
+
   
   // Custom settings saved in LocalStorage
   const [agencyName, setAgencyName] = useState('Asesoría E. Marín');
@@ -428,6 +433,29 @@ export default function App() {
   };
 
   const groupedNotices = getGroupedNotices(rawNotices);
+  const selectedJoint = groupedNotices.find((joint) => joint.id === selectedJointId)
+    || groupedNotices[0]
+    || null;
+  const selectedTab: 'text' | 'image' = selectedJoint
+    ? (activeTab[selectedJoint.id] || 'image')
+    : 'image';
+  const selectedVerificationState = (() => {
+    if (!selectedJoint) return 'empty';
+    let review = false;
+    let unverified = false;
+    selectedJoint.notices.forEach((notice) => {
+      if (!notice.verificacion || notice.verificacion.estado === 'sin-verificar') unverified = true;
+      if (notice.verificacion?.estado === 'revisar') review = true;
+    });
+    return review ? 'review' : unverified ? 'unverified' : 'ok';
+  })();
+  const selectedChargeDate = selectedJoint?.notices.length
+    ? selectedJoint.notices
+        .map((notice) => new Date(notice.fechaCargo))
+        .filter((date) => !isNaN(date.getTime()))
+        .sort((a, b) => a.getTime() - b.getTime())[0]
+    : null;
+
 
 
   const handleAdvisoryNoteChange = (jointId: string, enabled: boolean, text: string) => {
@@ -617,6 +645,372 @@ export default function App() {
       processImageFile(files[0]);
     }
   };
+
+  const workspaceRedesignEnabled = true;
+
+  if (workspaceRedesignEnabled) {
+    return (
+      <div className="min-h-screen bg-[#f7f6f3] text-slate-800">
+        <AnimatePresence>
+          {loading && <LoaderOverlay step={loadingStep} takingLong={takingLong} />}
+        </AnimatePresence>
+
+        <div
+          className="h-11 bg-[#0B3159] text-white flex items-center gap-2 px-4 pr-40 select-none"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <Clipboard className="w-4 h-4" />
+          <span className="text-sm font-semibold">Generador de Avisos Fiscales</span>
+        </div>
+
+        <div className="h-10 bg-white border-b border-stone-200 flex items-center justify-between px-3 relative z-40">
+          <div className="flex items-center h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            <div className="relative h-full flex items-center">
+              <button onClick={() => setOpenMenu(openMenu === 'file' ? null : 'file')} className="h-full px-3 text-sm hover:bg-stone-100">Archivo</button>
+              {openMenu === 'file' && (
+                <div className="absolute top-full left-0 w-56 bg-white border border-stone-200 rounded-b-lg shadow-xl p-1.5 z-50">
+                  <button onClick={() => { setOpenMenu(null); handleReadClipboard(); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Pegar captura <span className="float-right text-stone-400">Ctrl+V</span></button>
+                  <button onClick={() => { setOpenMenu(null); document.getElementById('workspace-file-input')?.click(); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Abrir imagen...</button>
+                  <div className="h-px bg-stone-100 my-1" />
+                  <button onClick={() => { setOpenMenu(null); loadExampleData(); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Cargar ejemplo</button>
+                </div>
+              )}
+            </div>
+
+            <div className="relative h-full flex items-center">
+              <button onClick={() => setOpenMenu(openMenu === 'edit' ? null : 'edit')} className="h-full px-3 text-sm hover:bg-stone-100">Editar</button>
+              {openMenu === 'edit' && (
+                <div className="absolute top-full left-0 w-64 bg-white border border-stone-200 rounded-b-lg shadow-xl p-1.5 z-50">
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setEditingJointId(selectedJoint.id); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100 disabled:opacity-40">Editar datos del aviso</button>
+                  <button onClick={() => { setShowPreferences(true); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Preferencias de la asesor&iacute;a</button>
+                  <div className="h-px bg-stone-100 my-1" />
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) handleDeleteClientGroup(selectedJoint.id); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded text-rose-600 hover:bg-rose-50 disabled:opacity-40">Descartar aviso activo</button>
+                  <button disabled={!rawNotices.length} onClick={() => { handleClearAll(); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded text-rose-600 hover:bg-rose-50 disabled:opacity-40">Limpiar todos</button>
+                </div>
+              )}
+            </div>
+
+            <div className="relative h-full flex items-center">
+              <button onClick={() => setOpenMenu(openMenu === 'view' ? null : 'view')} className="h-full px-3 text-sm hover:bg-stone-100">Ver</button>
+              {openMenu === 'view' && (
+                <div className="absolute top-full left-0 w-56 bg-white border border-stone-200 rounded-b-lg shadow-xl p-1.5 z-50">
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'text' })); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100 disabled:opacity-40">Texto WhatsApp</button>
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'image' })); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100 disabled:opacity-40">Imagen del aviso</button>
+                  <div className="h-px bg-stone-100 my-1" />
+                  {(['A', 'B', 'C'] as CardFormat[]).map((format) => (
+                    <button key={format} onClick={() => { handleCardFormatChange(format); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">
+                      Formato {format} {cardFormat === format ? '  *' : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative h-full flex items-center">
+              <button onClick={() => { setHistoryExpanded(!historyExpanded); setOpenMenu(null); }} className="h-full px-3 text-sm hover:bg-stone-100">Historial</button>
+            </div>
+
+            <div className="relative h-full flex items-center">
+              <button onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')} className="h-full px-3 text-sm hover:bg-stone-100">Ayuda</button>
+              {openMenu === 'help' && (
+                <div className="absolute top-full left-0 w-64 bg-white border border-stone-200 rounded-b-lg shadow-xl p-3 z-50">
+                  <ApiKeySettings />
+                  <div className="mt-3 pt-2 border-t border-stone-100 text-[11px] text-stone-500">
+                    Generador de Avisos Fiscales<br />
+                    Versi&oacute;n {appVersion || '...'}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <span className="text-xs text-stone-500 pr-2">Versi&oacute;n {appVersion || '...'}</span>
+        </div>
+
+        <input id="workspace-file-input" type="file" accept="image/*" className="hidden" onChange={handleFileInputChange} />
+
+        <div className="bg-white border-b border-stone-200 px-7 py-3">
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-3 flex-1">
+              <span className={'w-9 h-9 rounded-full flex items-center justify-center font-bold border ' + (selectedJoint ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-stone-50 border-stone-300 text-stone-500')}>
+                {selectedJoint ? <Check className="w-5 h-5" /> : '1'}
+              </span>
+              <div>
+                <div className="text-sm font-semibold">Pegar captura</div>
+                <div className="text-[10px] text-stone-400">Origen del aviso</div>
+              </div>
+              <div className="h-px bg-stone-200 flex-1 ml-3" />
+            </div>
+
+            <div className="flex items-center gap-3 flex-1">
+              <span className="w-9 h-9 rounded-full flex items-center justify-center font-bold bg-[#0B3159] text-white">2</span>
+              <div>
+                <div className="text-sm font-bold text-[#0B3159]">Revisar datos</div>
+                <div className="text-[10px] text-stone-400">Comprobar y corregir</div>
+              </div>
+              <div className="h-px bg-stone-200 flex-1 ml-3" />
+            </div>
+
+            <div className="flex items-center gap-3 flex-1">
+              <span className="w-9 h-9 rounded-full flex items-center justify-center font-bold border border-stone-300 text-stone-500">3</span>
+              <div>
+                <div className="text-sm font-semibold">Copiar y enviar</div>
+                <div className="text-[10px] text-stone-400">WhatsApp</div>
+              </div>
+            </div>
+
+            <button onClick={handleReadClipboard} className="ml-auto flex items-center gap-2 rounded-lg bg-[#0B3159] px-5 py-3 text-sm font-bold text-white hover:bg-[#082745]">
+              <Clipboard className="w-4 h-4" />
+              Pegar otra captura
+              <kbd className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-normal">Ctrl+V</kbd>
+            </button>
+          </div>
+        </div>
+
+        <main className="p-4 lg:p-5">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(430px,0.92fr)_minmax(620px,1.08fr)] gap-4 max-w-[1540px] mx-auto">
+            <section
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={'rounded-xl border bg-white shadow-sm min-h-[630px] overflow-hidden ' + (isDragOver ? 'border-[#0B3159] ring-2 ring-[#0B3159]/15' : 'border-stone-200')}
+            >
+              <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#102A4C]">Datos extra&iacute;dos</h2>
+                  <p className="text-[11px] text-stone-400 mt-0.5">Revise la informaci&oacute;n antes de enviarla</p>
+                </div>
+                {selectedJoint && (
+                  <span className={'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ' + (
+                    selectedVerificationState === 'ok'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      : selectedVerificationState === 'review'
+                        ? 'bg-rose-50 border-rose-200 text-rose-700'
+                        : 'bg-amber-50 border-amber-200 text-amber-700'
+                  )}>
+                    {selectedVerificationState === 'ok' ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+                    {selectedVerificationState === 'ok' ? 'Datos verificados' : selectedVerificationState === 'review' ? 'Revisar datos' : 'Sin verificar'}
+                  </span>
+                )}
+              </div>
+
+              {!selectedJoint ? (
+                <div className="p-6 h-[555px] flex items-center justify-center">
+                  <div className="max-w-sm w-full rounded-xl border-2 border-dashed border-stone-300 bg-stone-50/50 p-8 text-center">
+                    <Upload className="w-9 h-9 text-[#0B3159] mx-auto mb-3" />
+                    <h3 className="font-bold text-slate-800 mb-1">Pegue una captura para empezar</h3>
+                    <p className="text-xs text-stone-500 mb-5">Use Ctrl+V, arrastre una imagen o seleccione un archivo.</p>
+                    <button onClick={handleReadClipboard} className="w-full rounded-lg bg-[#0B3159] px-4 py-2.5 text-sm font-bold text-white">Pegar captura</button>
+                    <button onClick={() => document.getElementById('workspace-file-input')?.click()} className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700">Seleccionar imagen</button>
+                  </div>
+                </div>
+              ) : editingJointId === selectedJoint.id ? (
+                <div className="p-4">
+                  <NoticeEditor
+                    key={selectedJoint.id}
+                    notice={selectedJoint}
+                    onSave={handleEditSave}
+                    onCancel={() => setEditingJointId(null)}
+                  />
+                </div>
+              ) : (
+                <div className="p-5">
+                  <div className="grid grid-cols-[120px_1fr] gap-y-3 items-center text-sm">
+                    <span className="text-stone-500">Cliente</span>
+                    <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-semibold">{selectedJoint.cliente_nombre}</div>
+                    <span className="text-stone-500">NIF</span>
+                    <div className="w-fit min-w-40 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-mono">{selectedJoint.cliente_nif}</div>
+                    <span className="text-stone-500">Per&iacute;odo</span>
+                    <div className="w-fit min-w-40 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                      {selectedJoint.notices[0]?.periodo} / {selectedJoint.notices[0]?.ejercicio}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 border-t border-stone-200 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-bold text-slate-800">Impuestos incluidos &middot; {selectedJoint.notices.length}</h3>
+                      <button onClick={() => setEditingJointId(selectedJoint.id)} className="text-xs font-semibold text-[#0B3159] hover:underline">Editar</button>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedJoint.notices.map((tax, index) => (
+                        <div key={tax.id} className="grid grid-cols-[34px_70px_1fr_120px_110px] gap-3 items-center rounded-lg border border-stone-200 px-3 py-3">
+                          <span className="w-8 h-8 rounded-md bg-stone-100 flex items-center justify-center text-xs font-bold">{index + 1}</span>
+                          <div><span className="block text-[9px] uppercase text-stone-400">Modelo</span><span className="font-bold">{tax.modelo}</span></div>
+                          <div className="min-w-0"><span className="block text-[9px] uppercase text-stone-400">Impuesto</span><span className="block truncate font-semibold">{tax.modelo_nombre || 'Modelo ' + tax.modelo}</span></div>
+                          <div><span className="block text-[9px] uppercase text-stone-400">Resultado</span><span className="block truncate text-xs font-semibold">{tax.tipo_resultado}</span></div>
+                          <div className="text-right"><span className="block text-[9px] uppercase text-stone-400">Importe</span><span className="font-bold">{tax.importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro;</span></div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button onClick={() => document.getElementById('workspace-file-input')?.click()} className="mt-3 w-full rounded-lg border border-dashed border-stone-300 py-2.5 text-xs font-bold text-[#0B3159] hover:bg-stone-50">
+                      <Plus className="inline w-4 h-4 mr-1" /> A&ntilde;adir otra captura
+                    </button>
+                  </div>
+
+                  <div className="mt-5 border-t border-stone-200 pt-4 grid grid-cols-[170px_1fr] gap-y-3 items-center text-sm">
+                    <span className="text-stone-500">Cuenta de cargo (IBAN)</span>
+                    <div className="w-fit min-w-72 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-mono">
+                      {selectedJoint.iban
+                        ? selectedJoint.iban.replace(/\s+/g, '').replace(/^(.{4}).*(.{4})$/, '$1 **** **** $2')
+                        : 'No disponible'}
+                    </div>
+                    <span className="text-stone-500">Fecha de cargo</span>
+                    <div className="w-fit min-w-72 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                      {selectedChargeDate ? formatDateSpanish(selectedChargeDate) : 'No disponible'}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-between">
+                    <button onClick={() => handleDeleteClientGroup(selectedJoint.id)} className="rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">Descartar</button>
+                    <button onClick={() => setEditingJointId(selectedJoint.id)} className="rounded-lg bg-[#0B3159] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#082745]">
+                      <Edit2 className="inline w-4 h-4 mr-1.5" /> Editar datos
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-stone-200 bg-white shadow-sm min-h-[630px] overflow-hidden">
+              <div className="px-5 py-4 border-b border-stone-200">
+                <h2 className="text-lg font-bold text-[#102A4C]">Resultado para el cliente</h2>
+                <p className="text-[11px] text-stone-400 mt-0.5">Copie el texto o la imagen lista para WhatsApp</p>
+              </div>
+
+              {!selectedJoint ? (
+                <div className="h-[555px] flex flex-col items-center justify-center text-center p-8">
+                  <ImageIcon className="w-12 h-12 text-stone-300 mb-3" />
+                  <h3 className="font-semibold text-slate-700">Todav&iacute;a no hay un aviso</h3>
+                  <p className="text-xs text-stone-400 mt-1">La vista previa aparecer&aacute; cuando procese una captura.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="px-5 pt-3 border-b border-stone-200 flex gap-7">
+                    <button onClick={() => setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'text' }))} className={'pb-2.5 text-sm font-semibold border-b-2 ' + (selectedTab === 'text' ? 'border-[#0B3159] text-[#0B3159]' : 'border-transparent text-stone-500')}>Texto WhatsApp</button>
+                    <button onClick={() => setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'image' }))} className={'pb-2.5 text-sm font-semibold border-b-2 ' + (selectedTab === 'image' ? 'border-[#0B3159] text-[#0B3159]' : 'border-transparent text-stone-500')}>Imagen</button>
+                  </div>
+
+                  {selectedTab === 'text' ? (
+                    <div className="p-5">
+                      <div className="relative rounded-xl border border-stone-200 bg-stone-50 p-4 pt-14 min-h-[430px]">
+                        <button onClick={() => copyWhatsAppText(selectedJoint)} className="absolute top-3 right-3 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-stone-50">
+                          {copiedTextId === selectedJoint.id ? <Check className="inline w-4 h-4 mr-1 text-emerald-600" /> : <Copy className="inline w-4 h-4 mr-1" />}
+                          {copiedTextId === selectedJoint.id ? 'Copiado' : 'Copiar texto'}
+                        </button>
+                        <pre className="whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-slate-700">{generateWhatsAppText(selectedJoint)}</pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4">
+                      <div className="mb-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!selectedJoint.mostrarNotaAsesoria}
+                            onChange={(event) => handleAdvisoryNoteChange(selectedJoint.id, event.target.checked, selectedJoint.notaAsesoria || '')}
+                            className="w-4 h-4 accent-[#0B3159]"
+                          />
+                          <span className="text-xs font-bold text-slate-700">A&ntilde;adir nota manual al pie de la imagen</span>
+                          <Info className="w-3.5 h-3.5 text-stone-400" />
+                          {!selectedJoint.mostrarNotaAsesoria && <span className="ml-auto text-[10px] text-stone-400">El aviso no cambia mientras est&aacute; desactivada.</span>}
+                        </label>
+                        {selectedJoint.mostrarNotaAsesoria && (
+                          <textarea
+                            value={selectedJoint.notaAsesoria || ''}
+                            onChange={(event) => handleAdvisoryNoteChange(selectedJoint.id, true, event.target.value)}
+                            maxLength={240}
+                            rows={2}
+                            placeholder={'Ej.: Av\u00edsenos si quiere solicitar un aplazamiento.'}
+                            className="mt-3 w-full resize-y rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs focus:border-[#0B3159] focus:outline-none"
+                          />
+                        )}
+                      </div>
+
+                      <div className="rounded-xl border border-stone-100 bg-[#fbfaf8] px-3 py-4 overflow-x-auto flex justify-center">
+                        <NoticeCard notice={selectedJoint} format={cardFormat} />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          </div>
+
+          <section className="max-w-[1540px] mx-auto mt-4 rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+            <button onClick={() => setHistoryExpanded(!historyExpanded)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+              <span className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                <History className="w-4 h-4 text-[#0B3159]" />
+                Registro de hoy &middot; {groupedNotices.length} avisos
+              </span>
+              <span className="text-xs text-stone-400">{historyExpanded ? 'Ocultar' : 'Mostrar'}</span>
+            </button>
+            {historyExpanded && groupedNotices.length > 0 && (
+              <div className="border-t border-stone-200 px-3 py-3 flex gap-2 overflow-x-auto">
+                {groupedNotices.map((joint) => {
+                  const timestamp = joint.notices[0]?.timestamp;
+                  const isReady = joint.notices.every((notice) => notice.verificacion?.estado === 'ok');
+                  const isActive = selectedJoint?.id === joint.id;
+                  return (
+                    <button
+                      key={joint.id}
+                      onClick={() => { setSelectedJointId(joint.id); setEditingJointId(null); }}
+                      className={'min-w-[245px] rounded-lg border px-3 py-2 text-left transition ' + (isActive ? 'border-[#0B3159] bg-blue-50/40' : 'border-stone-200 hover:bg-stone-50')}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-stone-400">{timestamp ? new Date(timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                        <span className={'w-2 h-2 rounded-full ' + (isReady ? 'bg-emerald-500' : 'bg-amber-400')} />
+                        <span className="truncate text-xs font-bold text-slate-700">{joint.cliente_nombre}</span>
+                      </div>
+                      <div className="mt-1 pl-14 text-[10px] text-stone-500">
+                        {joint.notices.length} {joint.notices.length === 1 ? 'impuesto' : 'impuestos'} &middot; {isReady ? 'Listo' : 'Pendiente'}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </main>
+
+        {showPreferences && (
+          <div className="fixed inset-0 z-[70] bg-slate-950/45 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-stone-200 p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-lg font-bold text-[#102A4C]">Preferencias de la asesor&iacute;a</h2>
+                  <p className="text-xs text-stone-400">Datos generales y formato favorito</p>
+                </div>
+                <button onClick={() => setShowPreferences(false)} className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold">Cerrar</button>
+              </div>
+
+              <label className="block text-xs font-bold text-stone-600 mb-1">Nombre de la asesor&iacute;a</label>
+              <input value={agencyName} onChange={(event) => handleAgencyNameChange(event.target.value)} className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm mb-4" />
+
+              <label className="block text-xs font-bold text-stone-600 mb-2">Formato de la ficha</label>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {([
+                  { id: 'A' as CardFormat, label: 'Equilibrado' },
+                  { id: 'B' as CardFormat, label: 'Recibo' },
+                  { id: 'C' as CardFormat, label: 'Una ojeada' },
+                ]).map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => handleCardFormatChange(option.id)}
+                    className={'rounded-lg border px-3 py-3 text-xs font-bold ' + (cardFormat === option.id ? 'bg-[#0B3159] border-[#0B3159] text-white' : 'border-stone-200 bg-stone-50 text-slate-600')}
+                  >
+                    {option.id}<span className="block mt-1 text-[10px] font-normal">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <label className="block text-xs font-bold text-stone-600 mb-1">Firma de WhatsApp</label>
+              <textarea value={signatureText} onChange={(event) => handleSignatureChange(event.target.value)} rows={4} className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">

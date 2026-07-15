@@ -41,11 +41,17 @@ function startExpressServer() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 860,
-    minWidth: 1000,
-    minHeight: 700,
+    width: 1480,
+    height: 900,
+    minWidth: 1120,
+    minHeight: 720,
     title: 'Generador de Avisos Fiscales',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#0B3159',
+      symbolColor: '#FFFFFF',
+      height: 44,
+    },
     icon: path.join(__dirname, 'assets', 'app.ico'),
     autoHideMenuBar: true,
     webPreferences: {
