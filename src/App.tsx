@@ -21,7 +21,16 @@ import {
   Info,
   ExternalLink,
   Edit2,
-  Star
+  Star,
+  ChevronDown,
+  ChevronUp,
+  Settings2,
+  X,
+  MessageSquareText,
+  Landmark,
+  WalletCards,
+  CalendarClock,
+  PanelTop
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, ShieldAlert, ShieldQuestion } from 'lucide-react';
@@ -102,6 +111,27 @@ const FIELD_LABELS: Record<string, string> = {
 // devuelve Hacienda, se arrastra a declaraciones posteriores. Sin esto, a un 130
 // negativo se le pedía "realice el pago antes de la fecha límite".
 const SIN_PAGO = ['A compensar', 'Resultado negativo', 'Resultado cero / Sin actividad'];
+
+const ADVISORY_NOTE_PRESETS = [
+  {
+    id: 'aplazamiento',
+    label: 'Aplazamiento',
+    text: 'Av?senos si desea solicitar un aplazamiento.',
+    icon: Landmark,
+  },
+  {
+    id: 'saldo',
+    label: 'Saldo suficiente',
+    text: 'Recuerde disponer de saldo suficiente.',
+    icon: WalletCards,
+  },
+  {
+    id: 'domiciliacion',
+    label: 'Confirmar domiciliaci?n',
+    text: 'Pendiente de confirmar la domiciliaci?n.',
+    icon: CalendarClock,
+  },
+] as const;
 
 /**
  * El 130/131 no tiene resultado "a compensar": eso es del IVA. Cuando el pago
@@ -458,6 +488,10 @@ export default function App() {
 
 
 
+  const activeAdvisoryPresetId = selectedJoint
+    ? ADVISORY_NOTE_PRESETS.find((preset) => preset.text === (selectedJoint.notaAsesoria || '').trim())?.id
+    : undefined;
+
   const handleAdvisoryNoteChange = (jointId: string, enabled: boolean, text: string) => {
     const cleanText = text.slice(0, 240);
     const updated = rawNotices.map((notice) =>
@@ -650,56 +684,73 @@ export default function App() {
 
   if (workspaceRedesignEnabled) {
     return (
-      <div className="min-h-screen bg-[#f7f6f3] text-slate-800">
+      <div className="workspace-shell h-screen min-h-[720px] overflow-hidden bg-[#f7f6f3] text-slate-800 flex flex-col">
         <AnimatePresence>
           {loading && <LoaderOverlay step={loadingStep} takingLong={takingLong} />}
         </AnimatePresence>
 
         <div
-          className="h-11 bg-[#0B3159] text-white flex items-center gap-2 px-4 pr-40 select-none"
+          className="h-11 flex-none bg-[#0B3159] text-white flex items-center gap-2 px-4 pr-40 select-none"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
           <Clipboard className="w-4 h-4" />
           <span className="text-sm font-semibold">Generador de Avisos Fiscales</span>
         </div>
 
-        <div className="h-10 bg-white border-b border-stone-200 flex items-center justify-between px-3 relative z-40">
+        <div className="h-10 flex-none bg-white border-b border-stone-200 flex items-center justify-between px-3 relative z-40">
           <div className="flex items-center h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             <div className="relative h-full flex items-center">
-              <button onClick={() => setOpenMenu(openMenu === 'file' ? null : 'file')} className="h-full px-3 text-sm hover:bg-stone-100">Archivo</button>
+              <button data-open={openMenu === 'file'} onClick={() => setOpenMenu(openMenu === 'file' ? null : 'file')} className="workspace-menu-trigger h-full px-3 text-sm flex items-center gap-1.5">
+                <span>Archivo</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
               {openMenu === 'file' && (
                 <div className="absolute top-full left-0 w-56 bg-white border border-stone-200 rounded-b-lg shadow-xl p-1.5 z-50">
-                  <button onClick={() => { setOpenMenu(null); handleReadClipboard(); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Pegar captura <span className="float-right text-stone-400">Ctrl+V</span></button>
-                  <button onClick={() => { setOpenMenu(null); document.getElementById('workspace-file-input')?.click(); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Abrir imagen...</button>
+                  <button onClick={() => { setOpenMenu(null); handleReadClipboard(); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2">
+                    <Clipboard className="w-4 h-4" /><span className="flex-1 text-left">Pegar captura</span><kbd className="text-[10px] text-stone-400">Ctrl+V</kbd>
+                  </button>
+                  <button onClick={() => { setOpenMenu(null); document.getElementById('workspace-file-input')?.click(); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2">
+                    <Upload className="w-4 h-4" /><span>Abrir imagen...</span>
+                  </button>
                   <div className="h-px bg-stone-100 my-1" />
-                  <button onClick={() => { setOpenMenu(null); loadExampleData(); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Cargar ejemplo</button>
+                  <button onClick={() => { setOpenMenu(null); loadExampleData(); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" /><span>Cargar ejemplo</span>
+                  </button>
                 </div>
               )}
             </div>
 
             <div className="relative h-full flex items-center">
-              <button onClick={() => setOpenMenu(openMenu === 'edit' ? null : 'edit')} className="h-full px-3 text-sm hover:bg-stone-100">Editar</button>
+              <button data-open={openMenu === 'edit'} onClick={() => setOpenMenu(openMenu === 'edit' ? null : 'edit')} className="workspace-menu-trigger h-full px-3 text-sm flex items-center gap-1.5">
+                <span>Editar</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
               {openMenu === 'edit' && (
                 <div className="absolute top-full left-0 w-64 bg-white border border-stone-200 rounded-b-lg shadow-xl p-1.5 z-50">
-                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setEditingJointId(selectedJoint.id); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100 disabled:opacity-40">Editar datos del aviso</button>
-                  <button onClick={() => { setShowPreferences(true); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">Preferencias de la asesor&iacute;a</button>
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setEditingJointId(selectedJoint.id); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2 disabled:opacity-40"><Edit2 className="w-4 h-4" /><span>Editar datos del aviso</span></button>
+                  <button onClick={() => { setShowPreferences(true); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2"><Settings2 className="w-4 h-4" /><span>Preferencias de la asesor&iacute;a</span></button>
                   <div className="h-px bg-stone-100 my-1" />
-                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) handleDeleteClientGroup(selectedJoint.id); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded text-rose-600 hover:bg-rose-50 disabled:opacity-40">Descartar aviso activo</button>
-                  <button disabled={!rawNotices.length} onClick={() => { handleClearAll(); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded text-rose-600 hover:bg-rose-50 disabled:opacity-40">Limpiar todos</button>
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) handleDeleteClientGroup(selectedJoint.id); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded text-rose-600 flex items-center gap-2 disabled:opacity-40"><Trash2 className="w-4 h-4" /><span>Descartar aviso activo</span></button>
+                  <button disabled={!rawNotices.length} onClick={() => { handleClearAll(); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded text-rose-600 flex items-center gap-2 disabled:opacity-40"><X className="w-4 h-4" /><span>Limpiar todos</span></button>
                 </div>
               )}
             </div>
 
             <div className="relative h-full flex items-center">
-              <button onClick={() => setOpenMenu(openMenu === 'view' ? null : 'view')} className="h-full px-3 text-sm hover:bg-stone-100">Ver</button>
+              <button data-open={openMenu === 'view'} onClick={() => setOpenMenu(openMenu === 'view' ? null : 'view')} className="workspace-menu-trigger h-full px-3 text-sm flex items-center gap-1.5">
+                <span>Ver</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
               {openMenu === 'view' && (
                 <div className="absolute top-full left-0 w-56 bg-white border border-stone-200 rounded-b-lg shadow-xl p-1.5 z-50">
-                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'text' })); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100 disabled:opacity-40">Texto WhatsApp</button>
-                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'image' })); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100 disabled:opacity-40">Imagen del aviso</button>
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'text' })); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2 disabled:opacity-40"><MessageSquareText className="w-4 h-4" /><span>Texto WhatsApp</span></button>
+                  <button disabled={!selectedJoint} onClick={() => { if (selectedJoint) setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'image' })); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2 disabled:opacity-40"><ImageIcon className="w-4 h-4" /><span>Imagen del aviso</span></button>
                   <div className="h-px bg-stone-100 my-1" />
                   {(['A', 'B', 'C'] as CardFormat[]).map((format) => (
-                    <button key={format} onClick={() => { handleCardFormatChange(format); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-xs rounded hover:bg-stone-100">
-                      Formato {format} {cardFormat === format ? '  *' : ''}
+                    <button key={format} data-selected={cardFormat === format} onClick={() => { handleCardFormatChange(format); setOpenMenu(null); }} className="workspace-menu-item w-full px-3 py-2 text-xs rounded flex items-center gap-2">
+                      <PanelTop className="w-4 h-4" />
+                      <span className="flex-1 text-left">Formato {format}</span>
+                      {cardFormat === format && <Check className="w-4 h-4 text-emerald-600" />}
                     </button>
                   ))}
                 </div>
@@ -707,11 +758,16 @@ export default function App() {
             </div>
 
             <div className="relative h-full flex items-center">
-              <button onClick={() => { setHistoryExpanded(!historyExpanded); setOpenMenu(null); }} className="h-full px-3 text-sm hover:bg-stone-100">Historial</button>
+              <button data-open={historyExpanded} onClick={() => { setHistoryExpanded(!historyExpanded); setOpenMenu(null); }} className="workspace-menu-trigger h-full px-3 text-sm flex items-center gap-1.5">
+                <History className="w-3.5 h-3.5" /><span>Historial</span>
+              </button>
             </div>
 
             <div className="relative h-full flex items-center">
-              <button onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')} className="h-full px-3 text-sm hover:bg-stone-100">Ayuda</button>
+              <button data-open={openMenu === 'help'} onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')} className="workspace-menu-trigger h-full px-3 text-sm flex items-center gap-1.5">
+                <span>Ayuda</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
               {openMenu === 'help' && (
                 <div className="absolute top-full left-0 w-64 bg-white border border-stone-200 rounded-b-lg shadow-xl p-3 z-50">
                   <ApiKeySettings />
@@ -729,7 +785,7 @@ export default function App() {
 
         <input id="workspace-file-input" type="file" accept="image/*" className="hidden" onChange={handleFileInputChange} />
 
-        <div className="bg-white border-b border-stone-200 px-7 py-3">
+        <div className="flex-none bg-white border-b border-stone-200 px-5 py-2.5">
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-3 flex-1">
               <span className={'w-9 h-9 rounded-full flex items-center justify-center font-bold border ' + (selectedJoint ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-stone-50 border-stone-300 text-stone-500')}>
@@ -767,17 +823,17 @@ export default function App() {
           </div>
         </div>
 
-        <main className="p-4 lg:p-5">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(430px,0.92fr)_minmax(620px,1.08fr)] gap-4 max-w-[1540px] mx-auto">
+        <main className="flex-1 min-h-0 p-3 lg:p-4 flex flex-col">
+          <div className="flex-1 min-h-0 grid grid-cols-[minmax(390px,0.88fr)_minmax(520px,1.12fr)] gap-3 max-w-[1760px] w-full mx-auto">
             <section
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={'rounded-xl border bg-white shadow-sm min-h-[630px] overflow-hidden ' + (isDragOver ? 'border-[#0B3159] ring-2 ring-[#0B3159]/15' : 'border-stone-200')}
+              className={'h-full min-h-0 rounded-xl border bg-white shadow-sm overflow-y-auto ' + (isDragOver ? 'border-[#0B3159] ring-2 ring-[#0B3159]/15' : 'border-stone-200')}
             >
               <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-[#102A4C]">Datos extra&iacute;dos</h2>
+                  <h2 className="flex items-center gap-2 text-lg font-bold text-[#102A4C]"><FileText className="h-5 w-5" />Datos extra&iacute;dos</h2>
                   <p className="text-[11px] text-stone-400 mt-0.5">Revise la informaci&oacute;n antes de enviarla</p>
                 </div>
                 {selectedJoint && (
@@ -815,7 +871,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="p-5">
-                  <div className="grid grid-cols-[120px_1fr] gap-y-3 items-center text-sm">
+                  <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2.5 items-center text-sm">
                     <span className="text-stone-500">Cliente</span>
                     <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-semibold">{selectedJoint.cliente_nombre}</div>
                     <span className="text-stone-500">NIF</span>
@@ -833,11 +889,10 @@ export default function App() {
                     </div>
                     <div className="space-y-2">
                       {selectedJoint.notices.map((tax, index) => (
-                        <div key={tax.id} className="grid grid-cols-[34px_70px_1fr_120px_110px] gap-3 items-center rounded-lg border border-stone-200 px-3 py-3">
+                        <div key={tax.id} className="workspace-data-row grid grid-cols-[34px_62px_minmax(0,1fr)_105px] gap-2.5 items-center rounded-lg border border-stone-200 px-3 py-2.5">
                           <span className="w-8 h-8 rounded-md bg-stone-100 flex items-center justify-center text-xs font-bold">{index + 1}</span>
                           <div><span className="block text-[9px] uppercase text-stone-400">Modelo</span><span className="font-bold">{tax.modelo}</span></div>
-                          <div className="min-w-0"><span className="block text-[9px] uppercase text-stone-400">Impuesto</span><span className="block truncate font-semibold">{tax.modelo_nombre || 'Modelo ' + tax.modelo}</span></div>
-                          <div><span className="block text-[9px] uppercase text-stone-400">Resultado</span><span className="block truncate text-xs font-semibold">{tax.tipo_resultado}</span></div>
+                          <div className="min-w-0"><span className="block truncate font-semibold">{tax.modelo_nombre || 'Modelo ' + tax.modelo}</span><span className="mt-0.5 inline-flex rounded bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold text-stone-500">{tax.tipo_resultado}</span></div>
                           <div className="text-right"><span className="block text-[9px] uppercase text-stone-400">Importe</span><span className="font-bold">{tax.importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro;</span></div>
                         </div>
                       ))}
@@ -848,21 +903,21 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="mt-5 border-t border-stone-200 pt-4 grid grid-cols-[170px_1fr] gap-y-3 items-center text-sm">
+                  <div className="mt-4 border-t border-stone-200 pt-4 grid grid-cols-[145px_minmax(0,1fr)] gap-x-3 gap-y-2.5 items-center text-sm">
                     <span className="text-stone-500">Cuenta de cargo (IBAN)</span>
-                    <div className="w-fit min-w-72 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-mono">
+                    <div className="min-w-0 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-mono">
                       {selectedJoint.iban
                         ? selectedJoint.iban.replace(/\s+/g, '').replace(/^(.{4}).*(.{4})$/, '$1 **** **** $2')
                         : 'No disponible'}
                     </div>
                     <span className="text-stone-500">Fecha de cargo</span>
-                    <div className="w-fit min-w-72 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                    <div className="min-w-0 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
                       {selectedChargeDate ? formatDateSpanish(selectedChargeDate) : 'No disponible'}
                     </div>
                   </div>
 
                   <div className="mt-6 flex items-center justify-between">
-                    <button onClick={() => handleDeleteClientGroup(selectedJoint.id)} className="rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">Descartar</button>
+                    <button onClick={() => handleDeleteClientGroup(selectedJoint.id)} className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-4 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" />Descartar</button>
                     <button onClick={() => setEditingJointId(selectedJoint.id)} className="rounded-lg bg-[#0B3159] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#082745]">
                       <Edit2 className="inline w-4 h-4 mr-1.5" /> Editar datos
                     </button>
@@ -871,9 +926,9 @@ export default function App() {
               )}
             </section>
 
-            <section className="rounded-xl border border-stone-200 bg-white shadow-sm min-h-[630px] overflow-hidden">
+            <section className="h-full min-h-0 rounded-xl border border-stone-200 bg-white shadow-sm overflow-y-auto">
               <div className="px-5 py-4 border-b border-stone-200">
-                <h2 className="text-lg font-bold text-[#102A4C]">Resultado para el cliente</h2>
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[#102A4C]"><ImageIcon className="h-5 w-5" />Resultado para el cliente</h2>
                 <p className="text-[11px] text-stone-400 mt-0.5">Copie el texto o la imagen lista para WhatsApp</p>
               </div>
 
@@ -886,8 +941,8 @@ export default function App() {
               ) : (
                 <>
                   <div className="px-5 pt-3 border-b border-stone-200 flex gap-7">
-                    <button onClick={() => setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'text' }))} className={'pb-2.5 text-sm font-semibold border-b-2 ' + (selectedTab === 'text' ? 'border-[#0B3159] text-[#0B3159]' : 'border-transparent text-stone-500')}>Texto WhatsApp</button>
-                    <button onClick={() => setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'image' }))} className={'pb-2.5 text-sm font-semibold border-b-2 ' + (selectedTab === 'image' ? 'border-[#0B3159] text-[#0B3159]' : 'border-transparent text-stone-500')}>Imagen</button>
+                    <button aria-selected={selectedTab === 'text'} onClick={() => setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'text' }))} className={'flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 pb-2.5 pt-1 text-sm font-semibold ' + (selectedTab === 'text' ? 'border-[#0B3159] bg-[#EDF4FA] text-[#0B3159]' : 'border-transparent text-stone-500 hover:bg-stone-50 hover:text-slate-700')}><MessageSquareText className="h-4 w-4" />Texto WhatsApp</button>
+                    <button aria-selected={selectedTab === 'image'} onClick={() => setActiveTab((prev) => ({ ...prev, [selectedJoint.id]: 'image' }))} className={'flex items-center gap-1.5 rounded-t-lg border-b-2 px-3 pb-2.5 pt-1 text-sm font-semibold ' + (selectedTab === 'image' ? 'border-[#0B3159] bg-[#EDF4FA] text-[#0B3159]' : 'border-transparent text-stone-500 hover:bg-stone-50 hover:text-slate-700')}><ImageIcon className="h-4 w-4" />Imagen</button>
                   </div>
 
                   {selectedTab === 'text' ? (
@@ -902,27 +957,57 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="p-4">
-                      <div className="mb-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
-                        <label className="flex items-center gap-3 cursor-pointer">
+                      <div className={'mb-3 rounded-xl border px-4 py-3 ' + (selectedJoint.mostrarNotaAsesoria ? 'border-[#9DB3CF] bg-[#F7FAFD]' : 'border-stone-200 bg-stone-50')}>
+                        <label className="flex items-center gap-3 cursor-pointer rounded-lg">
                           <input
                             type="checkbox"
                             checked={!!selectedJoint.mostrarNotaAsesoria}
                             onChange={(event) => handleAdvisoryNoteChange(selectedJoint.id, event.target.checked, selectedJoint.notaAsesoria || '')}
-                            className="w-4 h-4 accent-[#0B3159]"
+                            className="w-4 h-4 accent-[#0B3159] cursor-pointer"
                           />
-                          <span className="text-xs font-bold text-slate-700">A&ntilde;adir nota manual al pie de la imagen</span>
-                          <Info className="w-3.5 h-3.5 text-stone-400" />
-                          {!selectedJoint.mostrarNotaAsesoria && <span className="ml-auto text-[10px] text-stone-400">El aviso no cambia mientras est&aacute; desactivada.</span>}
+                          <MessageSquareText className="w-4 h-4 text-[#0B3159]" />
+                          <span className="text-xs font-bold text-slate-700">A&ntilde;adir nota al pie del aviso</span>
+                          {!selectedJoint.mostrarNotaAsesoria && <span className="ml-auto text-[10px] text-stone-400">Desactivada por defecto</span>}
                         </label>
                         {selectedJoint.mostrarNotaAsesoria && (
-                          <textarea
-                            value={selectedJoint.notaAsesoria || ''}
-                            onChange={(event) => handleAdvisoryNoteChange(selectedJoint.id, true, event.target.value)}
-                            maxLength={240}
-                            rows={2}
-                            placeholder={'Ej.: Av\u00edsenos si quiere solicitar un aplazamiento.'}
-                            className="mt-3 w-full resize-y rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs focus:border-[#0B3159] focus:outline-none"
-                          />
+                          <div className="mt-3 border-t border-[#DCE5EF] pt-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-stone-500">Frases r&aacute;pidas</span>
+                              <span className="text-[10px] text-stone-400">Elija una y ed&iacute;tela si lo necesita</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {ADVISORY_NOTE_PRESETS.map((preset) => {
+                                const PresetIcon = preset.icon;
+                                const isSelected = activeAdvisoryPresetId === preset.id;
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    aria-pressed={isSelected}
+                                    onClick={() => handleAdvisoryNoteChange(selectedJoint.id, true, preset.text)}
+                                    className={'workspace-selectable relative min-h-20 rounded-lg border p-2.5 text-left ' + (isSelected ? 'border-[#0B3159] bg-[#EBF3FA] text-[#0B3159] ring-1 ring-[#0B3159]/20' : 'border-stone-200 bg-white text-slate-600')}
+                                  >
+                                    <PresetIcon className="mb-2 h-4 w-4" />
+                                    <span className="block pr-4 text-[10px] font-bold">{preset.label}</span>
+                                    <span className="mt-1 block text-[9px] leading-snug opacity-75">{preset.text}</span>
+                                    {isSelected && <Check className="absolute right-2 top-2 h-3.5 w-3.5 text-emerald-600" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <label className="mt-3 block text-[10px] font-bold uppercase tracking-wide text-stone-500">Texto editable</label>
+                            <div className="relative mt-1.5">
+                              <textarea
+                                value={selectedJoint.notaAsesoria || ''}
+                                onChange={(event) => handleAdvisoryNoteChange(selectedJoint.id, true, event.target.value)}
+                                maxLength={240}
+                                rows={2}
+                                placeholder="Escriba la nota que aparecer&aacute; en el pie del aviso."
+                                className="w-full resize-y rounded-lg border border-stone-200 bg-white px-3 py-2 pr-14 text-xs focus:border-[#0B3159] focus:outline-none focus:ring-2 focus:ring-[#0B3159]/10"
+                              />
+                              <span className="absolute bottom-2 right-2 text-[9px] text-stone-400">{(selectedJoint.notaAsesoria || '').length}/240</span>
+                            </div>
+                          </div>
                         )}
                       </div>
 
@@ -936,13 +1021,13 @@ export default function App() {
             </section>
           </div>
 
-          <section className="max-w-[1540px] mx-auto mt-4 rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
+          <section className="flex-none max-w-[1760px] w-full mx-auto mt-3 rounded-xl border border-stone-200 bg-white shadow-sm overflow-hidden">
             <button onClick={() => setHistoryExpanded(!historyExpanded)} className="w-full flex items-center justify-between px-4 py-3 text-left">
               <span className="flex items-center gap-2 text-sm font-bold text-slate-700">
                 <History className="w-4 h-4 text-[#0B3159]" />
                 Registro de hoy &middot; {groupedNotices.length} avisos
               </span>
-              <span className="text-xs text-stone-400">{historyExpanded ? 'Ocultar' : 'Mostrar'}</span>
+              <span className="flex items-center gap-1 text-xs font-semibold text-stone-500">{historyExpanded ? 'Ocultar' : 'Mostrar'}{historyExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
             </button>
             {historyExpanded && groupedNotices.length > 0 && (
               <div className="border-t border-stone-200 px-3 py-3 flex gap-2 overflow-x-auto">
@@ -952,9 +1037,9 @@ export default function App() {
                   const isActive = selectedJoint?.id === joint.id;
                   return (
                     <button
-                      key={joint.id}
+                      key={joint.id} data-selected={isActive}
                       onClick={() => { setSelectedJointId(joint.id); setEditingJointId(null); }}
-                      className={'min-w-[245px] rounded-lg border px-3 py-2 text-left transition ' + (isActive ? 'border-[#0B3159] bg-blue-50/40' : 'border-stone-200 hover:bg-stone-50')}
+                      className={'workspace-selectable min-w-[245px] rounded-lg border px-3 py-2 text-left ' + (isActive ? 'border-[#0B3159] bg-[#EDF4FA] ring-1 ring-[#0B3159]/20 shadow-sm' : 'border-stone-200 bg-white')}
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-stone-400">{timestamp ? new Date(timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
@@ -980,7 +1065,7 @@ export default function App() {
                   <h2 className="text-lg font-bold text-[#102A4C]">Preferencias de la asesor&iacute;a</h2>
                   <p className="text-xs text-stone-400">Datos generales y formato favorito</p>
                 </div>
-                <button onClick={() => setShowPreferences(false)} className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold">Cerrar</button>
+                <button onClick={() => setShowPreferences(false)} className="flex items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold hover:bg-stone-50"><X className="h-3.5 w-3.5" />Cerrar</button>
               </div>
 
               <label className="block text-xs font-bold text-stone-600 mb-1">Nombre de la asesor&iacute;a</label>

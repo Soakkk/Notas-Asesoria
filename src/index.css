@@ -16,4 +16,79 @@ body {
 .font-display {
   font-family: var(--font-display);
 }
+.workspace-shell button {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.workspace-shell button:not(:disabled):focus-visible {
+  outline: 2px solid rgba(11, 49, 89, 0.55);
+  outline-offset: 2px;
+}
+
+.workspace-shell button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.workspace-menu-trigger:hover,
+.workspace-menu-trigger[data-open='true'] {
+  background: #eef3f8;
+  color: #0b3159;
+}
+
+.workspace-menu-trigger[data-open='true'] {
+  box-shadow: inset 0 -2px 0 #0b3159;
+}
+
+.workspace-menu-item {
+  color: #334155;
+}
+
+.workspace-menu-item:hover,
+.workspace-menu-item[data-selected='true'] {
+  background: #edf4fa;
+  color: #0b3159;
+}
+
+.workspace-menu-item[data-selected='true'] {
+  font-weight: 700;
+}
+
+.workspace-menu-item.text-rose-600:hover {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.workspace-selectable:hover {
+  border-color: #9db3cf;
+  background: #f7fafc;
+  box-shadow: 0 6px 16px rgba(11, 49, 89, 0.08);
+  transform: translateY(-1px);
+}
+
+.workspace-selectable[data-selected='true']:hover {
+  background: #e7f0f8;
+  border-color: #0b3159;
+}
+
+.workspace-data-row {
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.workspace-data-row:hover {
+  border-color: #c1cfdd;
+  background: #fafcfe;
+  box-shadow: 0 3px 10px rgba(11, 49, 89, 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-shell button,
+  .workspace-data-row {
+    transition: none;
+  }
+}
 
