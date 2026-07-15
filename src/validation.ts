@@ -6,7 +6,7 @@
 export type CheckStatus = 'ok' | 'warn' | 'error';
 
 export interface FieldCheck {
-  field: 'iban' | 'cliente_nif' | 'importe' | 'periodo' | 'modelo' | 'cliente_nombre' | 'ejercicio';
+  field: 'iban' | 'cliente_nif' | 'importe' | 'periodo' | 'modelo' | 'cliente_nombre' | 'ejercicio' | 'tipo_resultado';
   status: CheckStatus;
   message: string;
 }
@@ -210,6 +210,48 @@ export function validateNombre(nombre: string): FieldCheck {
  * El IBAN solo se valida si el resultado es Domiciliación o hay devolución
  * (que es cuando la cuenta importa de verdad).
  */
+const RESULTADOS_VALIDOS = new Set([
+  'Domiciliación',
+  'A ingresar',
+  'A compensar',
+  'Resultado negativo',
+  'Resultado cero / Sin actividad',
+  'Devolución',
+]);
+
+export function validateTipoResultado(tipoResultado: string, importe: number): FieldCheck {
+  const tipo = (tipoResultado || '').trim();
+  if (!RESULTADOS_VALIDOS.has(tipo)) {
+    return {
+      field: 'tipo_resultado',
+      status: 'error',
+      message: `El resultado «${tipo || 'vacío'}» no es una opción fiscal reconocida.`,
+    };
+  }
+  if ((tipo === 'Domiciliación' || tipo === 'A ingresar') && importe < 0) {
+    return {
+      field: 'tipo_resultado',
+      status: 'warn',
+      message: `El resultado es «${tipo}», pero el importe es negativo. Compruebe el signo y el tipo de resultado.`,
+    };
+  }
+  if (tipo === 'Resultado negativo' && importe > 0) {
+    return {
+      field: 'tipo_resultado',
+      status: 'warn',
+      message: 'El resultado figura como negativo, pero el importe es positivo. Compruebe el signo.',
+    };
+  }
+  if (tipo === 'Resultado cero / Sin actividad' && Math.abs(importe) >= 0.01) {
+    return {
+      field: 'tipo_resultado',
+      status: 'warn',
+      message: 'El resultado figura sin actividad, pero el importe no es 0,00 €.',
+    };
+  }
+  return { field: 'tipo_resultado', status: 'ok', message: 'Tipo de resultado coherente.' };
+}
+
 export function verifyNoticeFields(data: {
   modelo: string;
   periodo: string;
@@ -227,6 +269,7 @@ export function verifyNoticeFields(data: {
     validateNIF(data.cliente_nif),
     validateNombre(data.cliente_nombre),
     validateImporte(data.importe, data.tipo_resultado),
+    validateTipoResultado(data.tipo_resultado, data.importe),
   ];
   const needsIban = data.tipo_resultado === 'Domiciliación' || data.tipo_resultado === 'Devolución';
   if (needsIban || (data.iban || '').trim()) {

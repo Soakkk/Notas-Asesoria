@@ -190,7 +190,16 @@ app.get("/api/capturas/:id", (req, res) => {
   if (!/^[a-z0-9-]+$/.test(id)) return res.status(400).end();
   const ruta = path.join(CAPTURAS_DIR, id + ".png");
   if (!fs.existsSync(ruta)) return res.status(404).json({ error: "Captura no encontrada." });
-  res.setHeader("Content-Type", "image/png");
+  const header = Buffer.alloc(12);
+  const file = fs.openSync(ruta, 'r');
+  try {
+    fs.readSync(file, header, 0, header.length, 0);
+  } finally {
+    fs.closeSync(file);
+  }
+  const isJpeg = header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+  const isWebp = header.toString('ascii', 0, 4) === 'RIFF' && header.toString('ascii', 8, 12) === 'WEBP';
+  res.setHeader("Content-Type", isJpeg ? "image/jpeg" : isWebp ? "image/webp" : "image/png");
   fs.createReadStream(ruta).pipe(res);
 });
 
@@ -208,6 +217,21 @@ app.delete("/api/capturas/:id", (req, res) => {
 });
 
 // API: Analyze Tax Image using Gemini
+const SUPPORTED_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+
+function parseImagePayload(imageBase64: unknown): { data: string; mimeType: string } {
+  const raw = String(imageBase64 || '');
+  const match = raw.match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
+  const mimeType = (match?.[1] || 'image/png').toLowerCase();
+  if (!SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
+    throw new Error('FORMATO_IMAGEN_NO_ADMITIDO');
+  }
+  return {
+    mimeType,
+    data: match ? raw.slice(match[0].length) : raw,
+  };
+}
+
 function isRetryableGeminiError(error: any): boolean {
   const text = String(error?.message || error || "");
   return (
@@ -289,6 +313,7 @@ const TAX_SCHEMA = {
     },
     tipo_resultado: {
       type: Type.STRING,
+      enum: ['Domiciliaci?n', 'A ingresar', 'A compensar', 'Resultado negativo', 'Resultado cero / Sin actividad', 'Devoluci?n'],
       description: "Tipo de resultado. Debe ser exactamente uno de estos valores: 'Domiciliación', 'A ingresar', 'A compensar', 'Resultado negativo', 'Resultado cero / Sin actividad', 'Devolución'. " +
         "Usa 'Resultado negativo' cuando el resultado de la declaración sea NEGATIVO y la AEAT no devuelva nada, sino que ese importe se descuente en declaraciones posteriores: " +
         "es el caso típico del modelo 130/131 con resultado negativo (aparece marcado como 'Negativa' o 'A deducir', y se arrastra a la casilla 'A deducir trimestres anteriores' del ejercicio). " +
@@ -321,14 +346,16 @@ app.post("/api/gemini/analyze-tax", async (req, res) => {
       return res.status(400).json({ error: "Falta la imagen en formato base64." });
     }
 
-    // Clean base64 data if it contains the data:image/png;base64, prefix
-    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const { data: cleanBase64, mimeType } = parseImagePayload(imageBase64);
 
-    const promptText = "Analiza detenidamente esta captura de pantalla de un modelo tributario de la Agencia Tributaria Española (AEAT) " +
-      "u otro programa de gestión fiscal (como A3, SAGE o la Sede Electrónica) y extrae la información solicitada en formato JSON " +
-      "según el esquema proporcionado. Fíjate bien en el número del modelo (ej. 303, 111, 115, 130, etc.), el ejercicio fiscal (ej. 2026), " +
-      "el período (ej. 2T, 3T, 1T, 01, 12, etc.), el NIF del cliente, el nombre completo del cliente, el importe total a ingresar o devolver, " +
-      "la modalidad de pago (especialmente si es Domiciliación o Ingreso) y el IBAN si figura en pantalla (limpiando espacios).";
+    const promptText = "Analiza detenidamente esta captura de un modelo tributario de la Agencia Tributaria Española (AEAT) " +
+      "o de un programa fiscal como A3 o SAGE y extrae únicamente los datos visibles según el esquema. " +
+      "Transcribe con precisión el modelo, ejercicio, período, NIF, nombre completo y forma de pago. " +
+      "Si aparecen varios importes, usa el resultado final o total de la declaración, nunca una base, cuota intermedia o pago previo. " +
+      "Conserva el signo del importe y convierte correctamente la coma decimal española: 1.234,56 significa 1234.56. " +
+      "No inventes el IBAN ni la fecha de presentación: solo devuélvelos cuando se vean completos. " +
+      "Distingue una devolución real de un resultado negativo o a compensar. Si un dato obligatorio no es legible, " +
+      "devuelve una cadena vacía, o 0 en el importe, para que la aplicación obligue a revisarlo.";
 
     const response = await generateContentWithRetry({
       // gemini-2.5-flash en vez de 3.5-flash: se comprobó que 3.5-flash se cuelga
@@ -339,13 +366,14 @@ app.post("/api/gemini/analyze-tax", async (req, res) => {
       contents: [
         {
           inlineData: {
-            mimeType: "image/png",
+            mimeType,
             data: cleanBase64
           }
         },
         { text: promptText }
       ],
       config: {
+        temperature: 0,
         responseMimeType: "application/json",
         responseSchema: TAX_SCHEMA
       }
@@ -397,6 +425,16 @@ function normalizarCampo(campo: string, valor: any): string {
     case "cliente_nombre":
       // Sin acentos, mayúsculas y espacios colapsados: "José Pérez " == "JOSE PEREZ"
       return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim().toUpperCase();
+    case "fecha_presentacion": {
+      const match = s.trim().match(/^(\d{1,4})[\/.-](\d{1,2})[\/.-](\d{1,4})$/);
+      if (!match) return s.trim();
+      const [, first, month, last] = match;
+      const yearFirst = first.length === 4;
+      const year = yearFirst ? first : last;
+      const day = yearFirst ? last : first;
+      if (year.length !== 4) return s.trim();
+      return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
+    }
     case "importe":
       return (Math.round((parseFloat(s) || 0) * 100) / 100).toFixed(2);
     default:
@@ -413,20 +451,18 @@ app.post("/api/gemini/verify-tax", async (req, res) => {
     if (!imageBase64 || !extracted) {
       return res.status(400).json({ error: "Faltan la imagen o los datos a verificar." });
     }
-    const cleanBase64 = String(imageBase64).replace(/^data:image\/\w+;base64,/, "");
+    const { data: cleanBase64, mimeType } = parseImagePayload(imageBase64);
 
-    const promptText = "Eres un transcriptor de documentos fiscales españoles. Tu única tarea es LEER Y TRANSCRIBIR " +
-      "con exactitud absoluta, dígito a dígito y letra a letra, los datos de esta captura de un modelo tributario " +
-      "(AEAT, A3, SAGE...). No interpretes ni corrijas nada: copia exactamente lo que ves. Presta especial atención a: " +
-      "el IBAN completo (verifica cada dígito dos veces), el importe exacto con sus decimales, el NIF/CIF con su letra, " +
-      "y el nombre completo del cliente. Devuelve el JSON según el esquema.";
+    const promptText = "Eres un transcriptor de documentos fiscales españoles. Lee esta captura de forma independiente " +
+      "y copia con exactitud, dígito a dígito, el IBAN, importe final, NIF/CIF, nombre, modelo, período y ejercicio. " +
+      "Comprueba especialmente los decimales y el signo del resultado. No confundas el importe final con bases o cuotas intermedias. " +
+      "Transcribe la fecha de presentación solo cuando aparezca expresamente en la captura. " +
+      "Para el tipo de resultado elige únicamente la opción del esquema que describa lo visible. No inventes ni completes datos ausentes.";
 
-    // La verificación usa un MODELO DISTINTO al de la primera lectura
-    // (gemini-2.5-flash): dos modelos diferentes casi nunca cometen el mismo
-    // error de OCR en el mismo dígito, así el contraste es de verdad
-    // independiente. Misma clave de API, sin coste extra. Si el modelo
-    // preferido no está disponible para esta clave, se recurre al siguiente.
-    const VERIFY_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash"];
+    // Segunda lectura con un modelo ligero y distinto al principal. Se evita
+    // gemini-2.0-flash porque ya está retirado y no aporta ningún contraste.
+    // 2.5 Flash-Lite queda como respaldo estable si el modelo preferido no está disponible.
+    const VERIFY_MODELS = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite"];
     let segunda: any = null;
     let modeloUsado = "";
     let ultimoError: any = null;
@@ -435,10 +471,11 @@ app.post("/api/gemini/verify-tax", async (req, res) => {
         const response = await generateContentWithRetry({
           model,
           contents: [
-            { inlineData: { mimeType: "image/png", data: cleanBase64 } },
+            { inlineData: { mimeType, data: cleanBase64 } },
             { text: promptText }
           ],
           config: {
+            temperature: 0,
             responseMimeType: "application/json",
             responseSchema: TAX_SCHEMA
           }
@@ -456,7 +493,7 @@ app.post("/api/gemini/verify-tax", async (req, res) => {
     if (!segunda) throw ultimoError || new Error("Ningún modelo de verificación disponible.");
 
     // Solo comparamos los campos donde un error tiene consecuencias reales.
-    const camposCriticos = ["iban", "importe", "cliente_nif", "cliente_nombre", "modelo", "periodo", "ejercicio", "tipo_resultado"];
+    const camposCriticos = ["iban", "importe", "cliente_nif", "cliente_nombre", "modelo", "periodo", "ejercicio", "tipo_resultado", "fecha_presentacion"];
     const discrepancias: { campo: string; primera: string; segunda: string }[] = [];
     for (const campo of camposCriticos) {
       const v1 = normalizarCampo(campo, (extracted as any)[campo]);

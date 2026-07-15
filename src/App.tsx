@@ -105,6 +105,7 @@ const FIELD_LABELS: Record<string, string> = {
   periodo: 'Periodo',
   ejercicio: 'Ejercicio',
   tipo_resultado: 'Resultado',
+  fecha_presentacion: 'Fecha de presentación',
 };
 
 // Resultados en los que el cliente no paga nada: el importe no se ingresa ni lo
@@ -479,6 +480,22 @@ export default function App() {
     });
     return review ? 'review' : unverified ? 'unverified' : 'ok';
   })();
+  const selectedVerificationIssues = selectedJoint
+    ? selectedJoint.notices.flatMap((notice) => {
+        const verification = notice.verificacion;
+        if (!verification) return [];
+        const prefix = selectedJoint.notices.length > 1 ? `Modelo ${notice.modelo}: ` : '';
+        const checks = verification.checks
+          .filter((check) => check.status !== 'ok')
+          .map((check) => ({ level: check.status, text: prefix + check.message }));
+        const discrepancies = (verification.discrepanciasIA || []).map((difference) => ({
+          level: 'error' as const,
+          text: `${prefix}${FIELD_LABELS[difference.campo] || difference.campo}: las dos lecturas no coinciden («${difference.primera}» / «${difference.segunda}»).`,
+        }));
+        return [...checks, ...discrepancies];
+      })
+    : [];
+
   const selectedChargeDate = selectedJoint?.notices.length
     ? selectedJoint.notices
         .map((notice) => new Date(notice.fechaCargo))
@@ -871,6 +888,30 @@ export default function App() {
                 </div>
               ) : (
                 <div className="p-5">
+                  {selectedVerificationState === 'review' && (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+                      <div className="flex items-start gap-2.5">
+                        <ShieldAlert className="mt-0.5 h-4 w-4 flex-none text-amber-700" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-xs font-bold text-amber-900">Revise estos datos antes de copiar el aviso</h3>
+                            <button onClick={() => setEditingJointId(selectedJoint.id)} className="flex-none rounded-md border border-amber-300 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-800 hover:bg-amber-100">Corregir datos</button>
+                          </div>
+                          <ul className="mt-1.5 space-y-1 text-[10px] leading-relaxed text-amber-900">
+                            {selectedVerificationIssues.length > 0
+                              ? selectedVerificationIssues.map((issue, index) => <li key={index}>&bull; {issue.text}</li>)
+                              : <li>&bull; Hay datos que requieren una comprobaci&oacute;n manual.</li>}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {selectedVerificationState === 'unverified' && (
+                    <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-3 text-[10px] text-stone-600">
+                      <ShieldQuestion className="mt-0.5 h-4 w-4 flex-none text-stone-500" />
+                      <span>No se pudo completar la segunda lectura. Compruebe los datos con la captura antes de enviarlos.</span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2.5 items-center text-sm">
                     <span className="text-stone-500">Cliente</span>
                     <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-semibold">{selectedJoint.cliente_nombre}</div>
@@ -889,11 +930,20 @@ export default function App() {
                     </div>
                     <div className="space-y-2">
                       {selectedJoint.notices.map((tax, index) => (
-                        <div key={tax.id} className="workspace-data-row grid grid-cols-[34px_62px_minmax(0,1fr)_105px] gap-2.5 items-center rounded-lg border border-stone-200 px-3 py-2.5">
+                        <div key={tax.id} className="workspace-data-row grid grid-cols-[34px_62px_minmax(0,1fr)_105px_32px] gap-2.5 items-center rounded-lg border border-stone-200 px-3 py-2.5">
                           <span className="w-8 h-8 rounded-md bg-stone-100 flex items-center justify-center text-xs font-bold">{index + 1}</span>
                           <div><span className="block text-[9px] uppercase text-stone-400">Modelo</span><span className="font-bold">{tax.modelo}</span></div>
                           <div className="min-w-0"><span className="block truncate font-semibold">{tax.modelo_nombre || 'Modelo ' + tax.modelo}</span><span className="mt-0.5 inline-flex rounded bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold text-stone-500">{tax.tipo_resultado}</span></div>
                           <div className="text-right"><span className="block text-[9px] uppercase text-stone-400">Importe</span><span className="font-bold">{tax.importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} &euro;</span></div>
+                          <button
+                            onClick={() => tax.screenshotId ? window.open('/api/capturas/' + tax.screenshotId, '_blank') : tax.screenshotUrl && window.open(tax.screenshotUrl, '_blank')}
+                            disabled={!tax.screenshotId && !tax.screenshotUrl}
+                            title="Ver captura original"
+                            aria-label={'Ver captura original del modelo ' + tax.modelo}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 hover:border-[#9DB3CF] hover:bg-[#EDF4FA] hover:text-[#0B3159] disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1378,7 +1428,7 @@ export default function App() {
                   const checks = v.checks
                     .filter((c) => c.status !== 'ok')
                     .map((c) => ({ level: c.status, text: `${prefix}${c.message}` }));
-                  const discrepancies = v.discrepanciasIA.map((d) => ({
+                  const discrepancies = (v.discrepanciasIA || []).map((d) => ({
                     level: 'error' as const,
                     text: `${prefix}${FIELD_LABELS[d.campo] || d.campo}: las dos lecturas de la IA no coinciden («${d.primera}» frente a «${d.segunda}»). Compare con la captura.`,
                   }));

@@ -270,7 +270,7 @@ export const NoticeCard: React.FC<NoticeCardProps> = ({ notice, format }) => {
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 11, background: NOTE_BG, border: `1px solid ${ROW}`, borderRadius: 10, padding: '9px 12px' }}>
         <Info size={14} color={NAVY} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: '#6B6456', lineHeight: 1.45, flex: 1, minWidth: 0 }}>
-          Por favor, revise que el número de cuenta es correcto y autorícenos a domiciliar el cargo en ella.
+          Compruebe que la cuenta indicada es correcta y confírmenos que podemos domiciliar el cargo.
         </span>
       </div>
     ) : null;
